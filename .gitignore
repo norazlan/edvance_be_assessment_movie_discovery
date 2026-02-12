@@ -1,0 +1,7 @@
+.devcontainer
+.vscode
+postgres-do-ca-certificate.crt
+api-gateway/.env
+movie-service/.env
+recommendation-service/.env
+user-preference-service/.env

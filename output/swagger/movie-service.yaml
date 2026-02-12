@@ -1,0 +1,254 @@
+openapi: 3.0.3
+info:
+  title: Movie Service API
+  description: |
+    Core backend service for the Movie Discovery Platform.
+    Fetches data from TMDB, normalizes and persists it, and exposes frontend-friendly APIs.
+  version: 1.0.0
+  contact:
+    name: Movie Discovery Team
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: movie-service
+
+  /movies:
+    get:
+      summary: List movies
+      description: Returns a paginated list of movies with sorting and date filtering.
+      tags: [movies]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number (1-based)
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page (max 100)
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [release_date, title, popularity]
+            default: popularity
+          description: Sort field
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort direction
+        - name: release_date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter start date (YYYY-MM-DD)
+        - name: release_date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter end date (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Paginated list of movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieListResponse'
+              example:
+                page: 1
+                page_size: 20
+                total_pages: 50
+                total_results: 1000
+                data:
+                  - id: 1
+                    title: "The Secret Life of Pets"
+                    release_date: "2016-06-18"
+                    popularity: 512.34
+                    poster_url: "https://image.tmdb.org/t/p/w500/xxx.jpg"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /movies/{id}:
+    get:
+      summary: Get movie detail
+      description: Returns detailed information for a single movie.
+      tags: [movies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Internal movie ID
+      responses:
+        '200':
+          description: Movie detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieDetail'
+              example:
+                id: 1
+                title: "The Secret Life of Pets"
+                overview: "The quiet life of a terrier named Max is upended when his owner takes in Duke..."
+                release_date: "2016-06-18"
+                genres: ["Animation", "Comedy", "Family"]
+                language: "en"
+                duration: 87
+                popularity: 512.34
+                poster_url: "https://image.tmdb.org/t/p/w500/xxx.jpg"
+                backdrop_url: "https://image.tmdb.org/t/p/w780/yyy.jpg"
+                booking_url: "https://www.google.com/"
+        '404':
+          description: Movie not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/sync:
+    post:
+      summary: Sync movies from TMDB
+      description: |
+        Triggers a manual sync of movies from the TMDB discover API.
+        Genres, movie data, and runtime are fetched and stored.
+      tags: [admin]
+      parameters:
+        - name: pages
+          in: query
+          schema:
+            type: integer
+            default: 5
+          description: Number of TMDB pages to sync (1-50)
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: sync completed
+                  movies_synced:
+                    type: integer
+                    example: 100
+                  pages:
+                    type: integer
+                    example: 5
+        '500':
+          description: Sync failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    MovieListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        release_date:
+          type: string
+          format: date
+        popularity:
+          type: number
+          format: double
+        poster_url:
+          type: string
+
+    MovieListResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        total_results:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovieListItem'
+
+    MovieDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        overview:
+          type: string
+        release_date:
+          type: string
+          format: date
+        genres:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        duration:
+          type: integer
+        popularity:
+          type: number
+          format: double
+        poster_url:
+          type: string
+        backdrop_url:
+          type: string
+        booking_url:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string

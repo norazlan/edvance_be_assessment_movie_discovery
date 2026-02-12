@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: Recommendation Service API
+  description: Generates personalized movie recommendations based on user preferences, movie popularity, recency, and genre matching.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8083
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: recommendation-service
+
+  /api/v1/users/{id}/recommendations:
+    get:
+      summary: Get movie recommendations for a user
+      description: >
+        Returns a list of movie recommendations scored by a weighted combination
+        of popularity, recency, and genre match with the user's preferences.
+      operationId: getRecommendations
+      tags:
+        - Recommendations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: User ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: Maximum number of recommendations
+      responses:
+        "200":
+          description: Recommendations generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationResponse"
+        "400":
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/rules:
+    get:
+      summary: List active recommendation rules
+      description: Returns all active scoring rules and their weights.
+      operationId: getRules
+      tags:
+        - Rules
+      responses:
+        "200":
+          description: Rules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RecommendationRule"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    RecommendationResponse:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovieRecommendation"
+        generated_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+
+    MovieRecommendation:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: "Inception"
+        release_date:
+          type: string
+          example: "2010-07-16"
+        genres:
+          type: array
+          items:
+            type: string
+          example: ["Action", "Science Fiction"]
+        popularity:
+          type: number
+          format: double
+          example: 125.34
+        poster_url:
+          type: string
+          example: "https://image.tmdb.org/t/p/w500/poster.jpg"
+        score:
+          type: number
+          format: double
+          example: 0.8742
+        reason:
+          type: string
+          example: "highly popular, matches your preferred genres"
+
+    RecommendationRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Popularity Score"
+        weight:
+          type: number
+          format: double
+          example: 0.4
+        rule_type:
+          type: string
+          example: "popularity"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "failed to generate recommendations"

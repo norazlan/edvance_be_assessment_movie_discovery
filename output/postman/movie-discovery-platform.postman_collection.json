@@ -1,0 +1,284 @@
+{
+  "info": {
+    "name": "Movie Discovery Platform",
+    "description": "Complete API collection for the Movie Discovery Platform microservices.\n\nServices:\n- API Gateway (port 8080)\n- Movie Service (port 8081)\n- User Preference Service (port 8082)\n- Recommendation Service (port 8083)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "test-token-12345",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "gateway_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "movie_service_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "user_pref_service_url",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "recommendation_service_url",
+      "value": "http://localhost:8083"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health",
+            "auth": { "type": "noauth" }
+          }
+        },
+        {
+          "name": "Movie Service Health",
+          "request": {
+            "method": "GET",
+            "url": "{{movie_service_url}}/health"
+          }
+        },
+        {
+          "name": "User Preference Service Health",
+          "request": {
+            "method": "GET",
+            "url": "{{user_pref_service_url}}/health"
+          }
+        },
+        {
+          "name": "Recommendation Service Health",
+          "request": {
+            "method": "GET",
+            "url": "{{recommendation_service_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Movies (via Gateway)",
+      "item": [
+        {
+          "name": "Sync Movies from TMDB",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/admin/sync?pages=5",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "admin", "sync"],
+              "query": [
+                { "key": "pages", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Movies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/movies?page=1&page_size=20&sort_by=popularity&order=desc",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "movies"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "sort_by", "value": "popularity" },
+                { "key": "order", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Movies with Date Filter",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/movies?release_date_from=2024-01-01&release_date_to=2025-12-31&page_size=10",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "movies"],
+              "query": [
+                { "key": "release_date_from", "value": "2024-01-01" },
+                { "key": "release_date_to", "value": "2025-12-31" },
+                { "key": "page_size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Movie Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/v1/movies/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (via Gateway)",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/v1/users",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/v1/users/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Preferences (via Gateway)",
+      "item": [
+        {
+          "name": "Set Preferences",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/v1/users/1/preferences",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preferred_genres\": [\"Action\", \"Science Fiction\", \"Adventure\"],\n  \"preferred_language\": \"en\",\n  \"min_rating\": 7.0\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Preferences",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/v1/users/1/preferences"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Interactions (via Gateway)",
+      "item": [
+        {
+          "name": "Record Like Interaction",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/v1/users/1/interactions",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"movie_id\": 1,\n  \"interaction_type\": \"like\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Record Watchlist Interaction",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/v1/users/1/interactions",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"movie_id\": 2,\n  \"interaction_type\": \"watchlist\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Interactions",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/v1/users/1/interactions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recommendations (via Gateway)",
+      "item": [
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/users/1/recommendations?limit=10",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "users", "1", "recommendations"],
+              "query": [
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Recommendation Rules",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/v1/rules"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service Access",
+      "item": [
+        {
+          "name": "Movie Service - List Movies (Direct)",
+          "request": {
+            "method": "GET",
+            "url": "{{movie_service_url}}/api/v1/movies?page=1&page_size=5",
+            "auth": { "type": "noauth" }
+          }
+        },
+        {
+          "name": "User Pref Service - Create User (Direct)",
+          "request": {
+            "method": "POST",
+            "url": "{{user_pref_service_url}}/api/v1/users",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"directuser\",\n  \"email\": \"direct@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Recommendation Service - Get Recs (Direct)",
+          "request": {
+            "method": "GET",
+            "url": "{{recommendation_service_url}}/api/v1/users/1/recommendations?limit=5",
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    }
+  ]
+}

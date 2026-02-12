@@ -1,0 +1,413 @@
+openapi: 3.0.3
+info:
+  title: Movie Discovery Platform - API Gateway
+  description: >
+    Unified API gateway for the Movie Discovery Platform.
+    Routes requests to Movie Service, User Preference Service, and Recommendation Service.
+    Provides authentication and rate limiting.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Gateway health check
+      operationId: healthCheck
+      security: []
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Gateway is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: api-gateway
+
+  /api/v1/movies:
+    get:
+      summary: List movies
+      description: Proxied to Movie Service. Returns a paginated list of movies.
+      operationId: listMovies
+      tags:
+        - Movies
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [popularity, release_date, title]
+            default: popularity
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: release_date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: release_date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Movie list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/movies/{id}:
+    get:
+      summary: Get movie detail
+      description: Proxied to Movie Service. Returns detailed information about a movie.
+      operationId: getMovieDetail
+      tags:
+        - Movies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Movie detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Movie not found
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/admin/sync:
+    post:
+      summary: Sync movies from TMDB
+      description: Proxied to Movie Service. Triggers a sync of movies from the TMDB API.
+      operationId: syncMovies
+      tags:
+        - Admin
+      parameters:
+        - name: pages
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Sync completed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/users:
+    post:
+      summary: Create a user
+      description: Proxied to User Preference Service.
+      operationId: createUser
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/users/{id}/preferences:
+    get:
+      summary: Get user preferences
+      description: Proxied to User Preference Service.
+      operationId: getUserPreferences
+      tags:
+        - User Preferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User preferences
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Set user preferences
+      description: Proxied to User Preference Service.
+      operationId: setUserPreferences
+      tags:
+        - User Preferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPreferenceRequest"
+      responses:
+        "200":
+          description: Preferences updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/{id}/interactions:
+    get:
+      summary: Get user interactions
+      description: Proxied to User Preference Service.
+      operationId: getUserInteractions
+      tags:
+        - User Interactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Interaction history
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Record a user interaction
+      description: Proxied to User Preference Service.
+      operationId: recordInteraction
+      tags:
+        - User Interactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInteractionRequest"
+      responses:
+        "201":
+          description: Interaction recorded
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/{id}/recommendations:
+    get:
+      summary: Get movie recommendations for a user
+      description: Proxied to Recommendation Service.
+      operationId: getRecommendations
+      tags:
+        - Recommendations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Personalized recommendations
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/rules:
+    get:
+      summary: Get recommendation rules
+      description: Proxied to Recommendation Service.
+      operationId: getRules
+      tags:
+        - Recommendations
+      responses:
+        "200":
+          description: Recommendation rules
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authorization token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: rate limit exceeded
+              retry_after:
+                type: integer
+                example: 45
+
+  schemas:
+    MovieListResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        total_results:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovieListItem"
+
+    MovieListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        release_date:
+          type: string
+        popularity:
+          type: number
+        poster_url:
+          type: string
+
+    MovieDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        overview:
+          type: string
+        release_date:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        duration:
+          type: integer
+        popularity:
+          type: number
+        poster_url:
+          type: string
+        backdrop_url:
+          type: string
+        booking_url:
+          type: string
+
+    CreateUserRequest:
+      type: object
+      required: [username, email]
+      properties:
+        username:
+          type: string
+          example: johndoe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+
+    SetPreferenceRequest:
+      type: object
+      properties:
+        preferred_genres:
+          type: array
+          items:
+            type: string
+          example: ["Action", "Sci-Fi"]
+        preferred_language:
+          type: string
+          example: en
+        min_rating:
+          type: number
+          example: 7.0
+
+    CreateInteractionRequest:
+      type: object
+      required: [movie_id, interaction_type]
+      properties:
+        movie_id:
+          type: integer
+          example: 42
+        interaction_type:
+          type: string
+          enum: [like, dislike, watchlist, watched]
+          example: like
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "missing Authorization header"

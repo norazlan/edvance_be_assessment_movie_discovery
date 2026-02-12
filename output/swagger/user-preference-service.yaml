@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: User Preference Service API
+  description: Manages user preferences, interactions, and personalization data.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082/api/v1
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: user-preference-service
+
+  /users:
+    post:
+      summary: Create a new user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              username: johndoe
+              email: john@example.com
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}/preferences:
+    post:
+      summary: Set user preferences
+      tags: [preferences]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPreferenceRequest'
+            example:
+              preferred_genres: ["Action", "Comedy", "Animation"]
+              preferred_language: "en"
+              min_rating: 7.0
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Get user preferences
+      tags: [preferences]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+              example:
+                id: 1
+                user_id: 1
+                preferred_genres: ["Action", "Comedy"]
+                preferred_language: "en"
+                min_rating: 7.0
+                updated_at: "2026-02-12T10:00:00Z"
+
+  /users/{id}/interactions:
+    post:
+      summary: Record a user interaction
+      tags: [interactions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInteractionRequest'
+            example:
+              movie_id: 1
+              interaction_type: "like"
+      responses:
+        '201':
+          description: Interaction recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInteraction'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Get user interactions
+      tags: [interactions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: User interactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  interactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserInteraction'
+
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required: [username, email]
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    SetPreferenceRequest:
+      type: object
+      properties:
+        preferred_genres:
+          type: array
+          items:
+            type: string
+        preferred_language:
+          type: string
+        min_rating:
+          type: number
+          format: double
+
+    UserPreference:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        preferred_genres:
+          type: array
+          items:
+            type: string
+        preferred_language:
+          type: string
+        min_rating:
+          type: number
+          format: double
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateInteractionRequest:
+      type: object
+      required: [movie_id, interaction_type]
+      properties:
+        movie_id:
+          type: integer
+        interaction_type:
+          type: string
+          enum: [like, dislike, watchlist, watched]
+
+    UserInteraction:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        movie_id:
+          type: integer
+        interaction_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
