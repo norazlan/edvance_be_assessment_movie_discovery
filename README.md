@@ -33,10 +33,23 @@ A microservices-based backend for discovering, managing, and recommending movies
 
 | Service                     | Port | Description                                         |
 | --------------------------- | ---- | --------------------------------------------------- |
-| **API Gateway**             | 8080 | Auth, rate limiting, request routing                |
+| **API Gateway**             | 8080 | Auth, rate limiting, request routing (no database)  |
 | **Movie Service**           | 8081 | TMDB sync, movie CRUD, search/filter/sort           |
 | **User Preference Service** | 8082 | User management, preferences, interaction tracking  |
 | **Recommendation Service**  | 8083 | Personalized recommendations using weighted scoring |
+
+- The **API Gateway** has no database — it handles auth, rate limiting (Redis), and HTTP proxying. Proxy timeout is 120s to accommodate long TMDB sync operations.
+- The **Recommendation Service** calls Movie Service and User Preference Service directly (not via the gateway) to fetch data for scoring.
+- Services communicate over HTTP only — no shared Go packages exist between them.
+
+### Redis Usage
+
+| Service                 | Redis DB | Purpose                                                 | Nil-safe?         |
+| ----------------------- | -------- | ------------------------------------------------------- | ----------------- |
+| API Gateway             | 0        | Rate limiting per IP (`ratelimit:{ip}`)                 | Yes (fail-open)   |
+| Movie Service           | 1        | Cache movie lists/details, invalidation after TMDB sync | Yes               |
+| User Preference Service | 2        | Cache preferences (`user:pref:{userID}`), DEL on update | Yes               |
+| Recommendation Service  | 3        | Cache recommendations (10min TTL)                       | **No** (required) |
 
 ## Prerequisites
 
@@ -104,6 +117,8 @@ cd api-gateway && go run cmd/main.go
 
 ### 4. Sync Movies from TMDB
 
+Movie data is pulled from TMDB **only on demand** — there is no cron or auto-sync. The sync fetches genres, discovers movies (paginated), and asynchronously fetches runtimes for movies missing them. Redis cache is invalidated after sync.
+
 ```bash
 curl -X POST "http://localhost:8080/api/v1/admin/sync?pages=5" \
   -H "Authorization: Bearer test-token"
@@ -155,7 +170,7 @@ Health checks and Swagger UI bypass authentication.
 
 ## Rate Limiting
 
-Redis-backed rate limiting: **100 requests per 60 seconds** per IP (configurable via `.env`).
+Redis-backed rate limiting: **100 requests per 60 seconds** per IP (configurable via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW_SECONDS` in `.env`). Fail-open: if Redis is down, requests are allowed through.
 
 Response headers:
 
@@ -172,6 +187,28 @@ Movies are scored using three weighted rules:
 | Popularity  | 0.4    | Normalized TMDB popularity                             |
 | Recency     | 0.3    | Linear decay over 2 years from release                 |
 | Genre Match | 0.3    | Overlap between movie genres and user preferred genres |
+
+## Graceful Shutdown
+
+All services implement graceful shutdown using `signal.NotifyContext` with `os.Interrupt` and `SIGTERM`. On shutdown, each service:
+
+1. Stops accepting new HTTP connections (`app.Shutdown()`)
+2. Explicitly closes PostgreSQL connection (`db.Close()`)
+3. Explicitly closes Redis connection (`rdb.Close()`)
+
+## Project Layout
+
+Every service follows the same layered structure:
+
+```
+<service>/internal/
+  config/     — env-based config (godotenv + os.Getenv with fallback defaults)
+  database/   — postgres.go (connection + inline migrations), redis.go
+  models/     — structs with json tags, request/response types
+  repository/ — raw SQL queries using database/sql ($1/$2 parameterized)
+  service/    — business logic, Redis caching, inter-service HTTP calls
+  handler/    — Fiber v3 handlers, ErrorResponse struct, swagger.go
+```
 
 ## Output Artifacts
 
