@@ -67,7 +67,26 @@ cp api-gateway/.env.example api-gateway/.env
 
 ### 3. Start Services
 
-Open 4 terminals and run each service:
+#### Option A: Using Development Script (Recommended)
+
+```bash
+# Start all services
+./dev-services.sh start
+
+# Check status
+./dev-services.sh status
+
+# View logs (follow mode)
+./dev-services.sh logs movie-service
+
+# Stop all services
+./dev-services.sh stop
+
+# Restart all services
+./dev-services.sh restart
+```
+
+#### Option B: Manual (run each in separate terminal)
 
 ```bash
 # Terminal 1 - Movie Service
