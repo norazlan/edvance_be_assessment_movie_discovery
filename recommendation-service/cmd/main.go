@@ -34,7 +34,6 @@ func main() {
 		slog.Error("failed to connect to PostgreSQL", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
 
 	// Connect to Redis
 	rdb, err := database.NewRedis(cfg.Redis)
@@ -42,7 +41,6 @@ func main() {
 		slog.Error("failed to connect to Redis", "error", err)
 		os.Exit(1)
 	}
-	defer rdb.Close()
 
 	// Initialize layers
 	repo := repository.NewRecommendationRepository(db)
@@ -72,9 +70,8 @@ func main() {
 	}
 
 	// Routes
-	app.Get("/health", h.Health)
-
 	api := app.Group("/api/v1")
+	api.Get("/health", h.Health)
 	api.Get("/users/:id/recommendations", h.GetRecommendations)
 	api.Get("/rules", h.GetRules)
 
@@ -90,6 +87,26 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down recommendation-service")
-	_ = app.Shutdown()
+	slog.Info("shutting down recommendation-service...")
+
+	// Shutdown HTTP server first (stop accepting new requests)
+	if err := app.Shutdown(); err != nil {
+		slog.Error("error shutting down HTTP server", "error", err)
+	}
+	slog.Info("HTTP server stopped")
+
+	// Close database connections
+	if err := db.Close(); err != nil {
+		slog.Error("error closing PostgreSQL connection", "error", err)
+	} else {
+		slog.Info("PostgreSQL connection closed")
+	}
+
+	if err := rdb.Close(); err != nil {
+		slog.Error("error closing Redis connection", "error", err)
+	} else {
+		slog.Info("Redis connection closed")
+	}
+
+	slog.Info("recommendation-service shutdown complete")
 }

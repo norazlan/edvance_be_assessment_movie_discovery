@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -36,7 +37,6 @@ func main() {
 		slog.Error("failed to connect to PostgreSQL", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
 
 	// Connect to Redis (non-fatal if unavailable)
 	rdb, err := database.NewRedis(cfg.Redis)
@@ -87,19 +87,41 @@ func main() {
 	api.Post("/admin/sync", h.SyncMovies)
 
 	// Graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-		slog.Info("shutting down movie service...")
-		_ = app.Shutdown()
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// Start server
-	addr := ":" + cfg.Port
-	slog.Info("starting movie service", "addr", addr)
-	if err := app.Listen(addr); err != nil {
-		slog.Error("server error", "error", err)
-		os.Exit(1)
+	go func() {
+		addr := ":" + cfg.Port
+		slog.Info("starting movie service", "addr", addr)
+		if err := app.Listen(addr); err != nil {
+			slog.Error("server error", "error", err)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("shutting down movie service...")
+
+	// Shutdown HTTP server first (stop accepting new requests)
+	if err := app.Shutdown(); err != nil {
+		slog.Error("error shutting down HTTP server", "error", err)
 	}
+	slog.Info("HTTP server stopped")
+
+	// Close database connections
+	if err := db.Close(); err != nil {
+		slog.Error("error closing PostgreSQL connection", "error", err)
+	} else {
+		slog.Info("PostgreSQL connection closed")
+	}
+
+	if rdb != nil {
+		if err := rdb.Close(); err != nil {
+			slog.Error("error closing Redis connection", "error", err)
+		} else {
+			slog.Info("Redis connection closed")
+		}
+	}
+
+	slog.Info("movie service shutdown complete")
 }

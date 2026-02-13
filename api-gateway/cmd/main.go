@@ -33,7 +33,6 @@ if err != nil {
 slog.Error("failed to connect to Redis", "error", err)
 os.Exit(1)
 }
-defer rdb.Close()
 
 // Load swagger spec
 swaggerYAML, err := os.ReadFile("docs/swagger.yaml")
@@ -105,6 +104,20 @@ slog.Error("server error", "error", err)
 }()
 
 <-ctx.Done()
-slog.Info("shutting down api-gateway")
-_ = app.Shutdown()
+slog.Info("shutting down api-gateway...")
+
+// Shutdown HTTP server first (stop accepting new requests)
+if err := app.Shutdown(); err != nil {
+slog.Error("error shutting down HTTP server", "error", err)
+}
+slog.Info("HTTP server stopped")
+
+// Close Redis connection
+if err := rdb.Close(); err != nil {
+slog.Error("error closing Redis connection", "error", err)
+} else {
+slog.Info("Redis connection closed")
+}
+
+slog.Info("api-gateway shutdown complete")
 }
