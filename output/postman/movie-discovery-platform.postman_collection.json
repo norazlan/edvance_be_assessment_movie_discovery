@@ -48,21 +48,21 @@
           "name": "Movie Service Health",
           "request": {
             "method": "GET",
-            "url": "{{movie_service_url}}/health"
+            "url": "{{movie_service_url}}/api/v1/health"
           }
         },
         {
           "name": "User Preference Service Health",
           "request": {
             "method": "GET",
-            "url": "{{user_pref_service_url}}/health"
+            "url": "{{user_pref_service_url}}/api/v1/health"
           }
         },
         {
           "name": "Recommendation Service Health",
           "request": {
             "method": "GET",
-            "url": "{{recommendation_service_url}}/health"
+            "url": "{{recommendation_service_url}}/api/v1/health"
           }
         }
       ]

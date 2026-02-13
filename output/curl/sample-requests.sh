@@ -22,15 +22,15 @@ curl -s "${BASE_URL}/health" | python3 -m json.tool
 echo ""
 
 echo ">>> 2. Movie Service Health Check (direct)"
-curl -s "http://localhost:8081/health" | python3 -m json.tool
+curl -s "http://localhost:8081/api/v1/health" | python3 -m json.tool
 echo ""
 
 echo ">>> 3. User Preference Service Health Check (direct)"
-curl -s "http://localhost:8082/health" | python3 -m json.tool
+curl -s "http://localhost:8082/api/v1/health" | python3 -m json.tool
 echo ""
 
 echo ">>> 4. Recommendation Service Health Check (direct)"
-curl -s "http://localhost:8083/health" | python3 -m json.tool
+curl -s "http://localhost:8083/api/v1/health" | python3 -m json.tool
 echo ""
 
 # ─────────────────────────────────────────────
