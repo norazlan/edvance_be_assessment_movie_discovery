@@ -135,7 +135,7 @@ func (h *UserHandler) GetInteractions(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid user ID"})
 	}
 
-	limit := fiber.Query[int](c, "limit", 50)
+	limit := fiber.Query(c, "limit", 50)
 
 	interactions, err := h.svc.GetInteractions(id, limit)
 	if err != nil {

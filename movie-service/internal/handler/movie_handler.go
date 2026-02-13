@@ -53,8 +53,8 @@ func (h *MovieHandler) Health(c fiber.Ctx) error {
 // @Router /movies [get]
 func (h *MovieHandler) ListMovies(c fiber.Ctx) error {
 	params := models.MovieListParams{
-		Page:            fiber.Query[int](c, "page", 1),
-		PageSize:        fiber.Query[int](c, "page_size", 20),
+		Page:            fiber.Query(c, "page", 1),
+		PageSize:        fiber.Query(c, "page_size", 20),
 		SortBy:          c.Query("sort_by", "popularity"),
 		Order:           c.Query("order", "desc"),
 		ReleaseDateFrom: c.Query("release_date_from"),
@@ -115,7 +115,7 @@ func (h *MovieHandler) GetMovieDetail(c fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /admin/sync [post]
 func (h *MovieHandler) SyncMovies(c fiber.Ctx) error {
-	pages := fiber.Query[int](c, "pages", 5)
+	pages := fiber.Query(c, "pages", 5)
 	if pages < 1 {
 		pages = 1
 	}
@@ -132,8 +132,8 @@ func (h *MovieHandler) SyncMovies(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message":      "sync completed",
+		"message":       "sync completed",
 		"movies_synced": count,
-		"pages":        pages,
+		"pages":         pages,
 	})
 }

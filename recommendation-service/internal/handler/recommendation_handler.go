@@ -35,7 +35,7 @@ func (h *RecommendationHandler) GetRecommendations(c fiber.Ctx) error {
 		})
 	}
 
-	limit := fiber.Query[int](c, "limit", 10)
+	limit := fiber.Query(c, "limit", 10)
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
