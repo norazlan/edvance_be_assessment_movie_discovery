@@ -10,9 +10,22 @@ API Gateway (:8080)  →  Movie Service (:8081)         — owns movies DB, sync
                      →  Recommendation Service (:8083)  — owns scoring rules DB, calls Movie + UserPref services at runtime
 ```
 
-- **API Gateway** has no database—it only does auth, rate limiting (Redis), and HTTP proxying via `internal/proxy/proxy.go`.
+- **API Gateway** has no database—it only does auth, rate limiting (Redis), and HTTP proxying via `internal/proxy/proxy.go`. Proxy timeout is 120s to accommodate long TMDB sync operations.
 - **Recommendation Service** is a _consumer_ of the other two services: it calls their REST APIs directly (not via the gateway) using `httpClient` to fetch movies and user preferences for scoring.
-- Redis is shared across services for caching/rate limiting but each service uses a different `REDIS_DB` index (0, 1, 2, 3).
+- Redis is shared across services for caching/rate limiting but each service uses a different `REDIS_DB` index (0–3).
+
+### Redis Usage by Service
+
+| Service                 | Redis DB | Purpose                                                                                                      | Nil-safe?         |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ----------------- |
+| API Gateway             | 0        | Rate limiting per IP (`ratelimit:{ip}`) using INCR/EXPIRE/TTL                                                | Yes (fail-open)   |
+| Movie Service           | 1        | Cache movie lists (`movies:list:*`) and details (`movie:detail:{id}`), SCAN+DEL invalidation after TMDB sync | Yes               |
+| User Preference Service | 2        | Cache preferences (`user:pref:{userID}`), DEL on update                                                      | Yes               |
+| Recommendation Service  | 3        | Cache recommendations (`recommendations:{userID}:{limit}`, 10min TTL)                                        | **No** (required) |
+
+### TMDB Sync
+
+Movie data is pulled from TMDB **only on demand** via `POST /api/v1/admin/sync`. There is no cron or auto-sync. The sync fetches genres, discovers movies (paginated), and asynchronously fetches runtimes for movies missing them (with 100ms rate-limit delay between TMDB calls). Redis cache is invalidated after sync.
 
 ## Project Layout & Conventions
 
@@ -36,12 +49,28 @@ Key patterns to follow:
 - **Database migrations** are inline SQL strings in `database/postgres.go` `runMigrations()` — no migration framework.
 - **SQL** uses `database/sql` + `github.com/lib/pq` directly — no GORM, sqlx, or query builders. All queries use positional params (`$1`, `$2`).
 - **Upsert pattern**: `INSERT ... ON CONFLICT ... DO UPDATE` is used throughout repositories.
-- **Redis caching** is optional/graceful: services continue working when Redis is unavailable (except the recommendation service which requires it).
+- **Redis caching** is optional/graceful: services continue working when Redis is unavailable (except the recommendation service which requires it). All cache helpers check `s.redis == nil` before use.
 - **Error responses** use the shared `handler.ErrorResponse{Error: string}` struct.
 
 ## Running Services
 
-Each service runs from its own directory — there is no workspace-level build:
+### Development Script (recommended)
+
+Use the `dev-services.sh` script at the project root:
+
+```sh
+./dev-services.sh start     # Start all 4 services in background
+./dev-services.sh stop      # Stop all services and free ports
+./dev-services.sh restart   # Restart all services
+./dev-services.sh status    # Show running status of each service
+./dev-services.sh logs <service-name>  # Tail logs for a specific service
+```
+
+The script stores PIDs in `/tmp/movie-discovery-pids/` and logs in `/tmp/<service-name>.log`. The stop command handles `go run` child processes properly (kills both the `go run` parent and the compiled child binary, with `lsof` port-based fallback).
+
+### Manual startup
+
+Each service runs from its own directory:
 
 ```sh
 cd movie-service && go run cmd/main.go        # :8081
@@ -52,11 +81,21 @@ cd api-gateway && go run cmd/main.go           # :8080
 
 Configuration is via `.env` files (copy from `.env.example`) or environment variables. Each service needs its own database created in PostgreSQL; schemas are auto-migrated on startup.
 
+## Graceful Shutdown
+
+All services implement graceful shutdown using `signal.NotifyContext` with `os.Interrupt` and `SIGTERM`. On shutdown, each service:
+
+1. Stops accepting new HTTP connections (`app.Shutdown()`)
+2. Explicitly closes PostgreSQL connection (`db.Close()`)
+3. Explicitly closes Redis connection (`rdb.Close()`)
+
+All steps are logged via `slog`. Do **not** rely on `defer` for connection cleanup — use explicit close calls after `app.Shutdown()` in the signal handler block.
+
 ## Inter-Service Communication
 
 - The **API Gateway** proxies all `/api/v1/*` requests to downstream services by path matching, forwarding the full path. Routes are order-sensitive (more specific routes first).
 - The **Recommendation Service** calls **Movie Service** (`/api/v1/movies`, `/api/v1/movies/:id`) and **User Preference Service** (`/api/v1/users/:id/preferences`) directly (bypassing the gateway) using URLs from env config.
-- Auth is mock-only: any non-empty `Bearer` token is accepted at the gateway. Health and swagger endpoints bypass auth.
+- Auth is mock-only: any non-empty `Bearer` token is accepted at the gateway. Health (`/health`, `/api/v1/health`) and swagger endpoints bypass auth.
 
 ## Swagger / API Docs
 
