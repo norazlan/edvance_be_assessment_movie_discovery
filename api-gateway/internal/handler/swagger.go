@@ -1,19 +1,19 @@
 package handler
 
 import (
-"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3"
 )
 
 // RegisterSwagger sets up the swagger documentation routes for the API gateway.
 func RegisterSwagger(app *fiber.App, yamlContent []byte) {
-app.Get("/swagger/doc.yaml", func(c fiber.Ctx) error {
-c.Set("Content-Type", "application/yaml")
-return c.Send(yamlContent)
-})
+	app.Get("/swagger/doc.yaml", func(c fiber.Ctx) error {
+		c.Set("Content-Type", "application/yaml")
+		return c.Send(yamlContent)
+	})
 
-app.Get("/swagger/*", func(c fiber.Ctx) error {
-c.Set("Content-Type", "text/html")
-html := `<!DOCTYPE html>
+	app.Get("/swagger/*", func(c fiber.Ctx) error {
+		c.Set("Content-Type", "text/html")
+		html := `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -34,6 +34,6 @@ html := `<!DOCTYPE html>
     </script>
 </body>
 </html>`
-return c.SendString(html)
-})
+		return c.SendString(html)
+	})
 }
